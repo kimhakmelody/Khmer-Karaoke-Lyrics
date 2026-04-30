@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Khmer Karaoke Studio Pro</title>
+    <!-- Google Font Backup -->
+    <link href="https://fonts.googleapis.com/css2?family=Moul&display=swap" rel="stylesheet">
+    <!-- JSZip Library for creating Zip files -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+    <style>
+        :root {
+            --bg-gradient: radial-gradient(circle at top left, #2a2a2a, #000000);
+            --glass-bg: rgba(30, 30, 30, 0.6);
+            --glass-border: 1px solid rgba(255, 255, 255, 0.1);
+            --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+            --text-color: #ffffff;
+            --accent: #ff3333;
+            --success: #28a745;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: var(--bg-gradient);
+            /* Add a fixed background image or pattern if you want more texture behind the glass */
+            background-attachment: fixed;
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 { 
+            margin-bottom: 5px; 
+            color: #fff; 
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+        p.subtitle { margin-top: 0; color: #aaa; font-size: 0.9rem; margin-bottom: 30px; }
+
+        /* --- GLASS BOX STYLE (The "Fade Edge" look) --- */
+        .panel, .preview-box, .result-card, .lyrics-panel, textarea {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: var(--glass-border);
+            border-radius: 20px; /* Rounded like your reference */
+            box-shadow: var(--glass-shadow);
+            /* Inner fade effect */
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05); 
+        }
+
+        /* --- CONTROLS LAYOUT --- */
+        .controls-wrapper {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+            width: 100%;
+            max-width: 1200px;
+            margin-bottom: 20px;
+        }
+
+        .panel {
+            padding: 25px;
+            flex: 1;
+            min-width: 280px;
+            transition: transform 0.2s;
+        }
+
+        .panel:hover {
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .panel h3 { 
+            margin-top: 0; 
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1); 
+            padding-bottom: 15px; 
+            font-size: 1.1rem; 
+            color: #fff;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .control-group-slider {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        .control-group-slider label { min-width: 60px; color: #ddd; }
+        .control-group-slider input[type="range"] { flex-grow: 1; }
+
+        label { font-size: 0.9rem; color: #ddd; }
+
+        /* Custom Color Input */
+        input[type="color"] {
+            border: none;
+            width: 35px;
+            height: 35px;
+            cursor: pointer;
+            background: none;
+            border-radius: 50%;
+            overflow: hidden;
+            padding: 0;
+            box-shadow: 0 0 5px rgba(0,0,0,0.5);
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; }
+
+        /* Custom Inputs */
+        input[type="number"], input[type="range"] {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+            padding: 5px;
+            border-radius: 8px;
+        }
+
+        /* Slider Styling */
+        input[type="range"] {
+            -webkit-appearance: none;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            border: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #fff;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+
+        /* Reset Button Style */
+        .reset-btn {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            font-size: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        .reset-btn:hover { background: rgba(255, 255, 255, 0.3); transform: rotate(-90deg); }
+
+        /* --- TEXT AREA --- */
+        .lyrics-panel {
+            width: 100%;
+            max-width: 800px;
+            margin-bottom: 20px;
+            padding: 0; /* Remove padding here, textarea has it */
+            overflow: hidden; /* For border radius */
+        }
+        textarea {
+            width: 100%;
+            height: 120px;
+            background: transparent; /* Transparent because container has glass */
+            color: #fff;
+            border: none;
+            padding: 20px;
+            font-family: 'Moul', sans-serif;
+            font-size: 16px;
+            resize: vertical;
+            box-sizing: border-box;
+            outline: none;
+        }
+        textarea::placeholder { color: rgba(255,255,255,0.3); }
+
+        /* --- BUTTONS --- */
+        .btn-container {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            width: 100%;
+            max-width: 600px;
+            margin-top: 10px;
+        }
+
+        .btn-primary, .btn-success {
+            padding: 15px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            flex: 1;
+            /* Glassy Button Effect */
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            backdrop-filter: blur(5px);
+        }
+
+        /* Specific Colors via gradients or overlays */
+        .btn-primary { background: linear-gradient(135deg, rgba(230, 0, 0, 0.8), rgba(150, 0, 0, 0.8)); }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(230, 0, 0, 0.4); }
+
+        .btn-success { background: linear-gradient(135deg, rgba(40, 167, 69, 0.8), rgba(20, 100, 40, 0.8)); }
+        .btn-success:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(40, 167, 69, 0.4); }
+
+
+        /* --- LIVE PREVIEW --- */
+        #preview-container {
+            width: 100%;
+            max-width: 1000px;
+            margin-bottom: 30px;
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .preview-box {
+            flex: 1;
+            min-width: 300px;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .preview-label {
+            margin: 0 0 15px 0; 
+            font-size: 0.9rem;
+            font-weight: bold;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        canvas.live-canvas {
+            width: 100%;
+            height: auto;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            /* Checkerboard pattern for transparency */
+            background-image: 
+                linear-gradient(45deg, #222 25%, transparent 25%), 
+                linear-gradient(-45deg, #222 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, #222 75%), 
+                linear-gradient(-45deg, transparent 75%, #222 75%);
+            background-size: 20px 20px;
+            background-color: #1a1a1a;
+        }
+
+        /* --- RESULTS GRID --- */
+        #results-area {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+            width: 100%;
+            max-width: 1400px;
+            margin-top: 30px;
+            margin-bottom: 50px;
+        }
+
+        .result-card {
+            padding: 15px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            color: #bbb;
+        }
+
+        .img-preview {
+            width: 100%;
+            height: auto;
+            background-image: 
+                linear-gradient(45deg, #222 25%, transparent 25%), 
+                linear-gradient(-45deg, #222 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, #222 75%), 
+                linear-gradient(-45deg, transparent 75%, #222 75%);
+            background-size: 20px 20px;
+            background-color: #1a1a1a;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+
+        .download-btn {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            background: rgba(0, 123, 255, 0.2);
+            color: #4da3ff;
+            text-decoration: none;
+            border: 1px solid rgba(0, 123, 255, 0.3);
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 0.9rem;
+            cursor: pointer;
+            box-sizing: border-box;
+            transition: all 0.2s;
+        }
+        .download-btn:hover { 
+            background: rgba(0, 123, 255, 0.4); 
+            color: white;
+            border-color: rgba(0, 123, 255, 0.5);
+        }
+
+        /* --- FOOTER CREDIT --- */
+        .footer {
+            margin-top: 50px;
+            margin-bottom: 20px;
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 0.9rem;
+            letter-spacing: 1px;
+            text-align: center;
+            font-weight: 500;
+        }
+        .footer span {
+            color: var(--accent);
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(255, 51, 51, 0.3);
+        }
+
+    </style>
+</head>
+<body onload="init()">
+
+    <h1>Khmer Karaoke Studio Pro👑</h1>
+    <p class="subtitle">Ensure <b>KhmerOS_muollight.ttf</b> is in this folder.</p>
+
+    <!-- LIVE PREVIEW SECTION -->
+    <div id="preview-container">
+        <div class="preview-box">
+            <div class="preview-label" style="color:#ccc;">Normal Preview (Inactive)</div>
+            <canvas id="preview-normal" class="live-canvas" width="1920" height="1080"></canvas>
+        </div>
+        <div class="preview-box">
+            <div class="preview-label" style="color:#ffbb00;">Active Preview (Singing)</div>
+            <canvas id="preview-active" class="live-canvas" width="1920" height="1080"></canvas>
+        </div>
+    </div>
+
+    <!-- SETTINGS PANEL -->
+    <div class="controls-wrapper">
+
+        <!-- Panel 1: Normal Style (Inactive) -->
+        <div class="panel">
+            <h3>🎨 Style 1: Normal</h3>
+            <div class="control-group">
+                <label>Text Color</label>
+                <input type="color" id="normFill" value="#FFFFFF" oninput="updateLivePreview()">
+            </div>
+            <div class="control-group">
+                <label>Stroke Color</label>
+                <input type="color" id="normStroke" value="#000000" oninput="updateLivePreview()">
+            </div>
+            <div class="control-group">
+                <label>Stroke Width</label>
+                <input type="number" id="normWidth" value="18" min="0" max="50" oninput="updateLivePreview()">
+            </div>
+        </div>
+
+        <!-- Panel 2: Active Style (Singing) -->
+        <div class="panel">
+            <h3>🎤 Style 2: Active</h3>
+            <div class="control-group">
+                <label>Text Color</label>
+                <input type="color" id="actFill" value="#0000D1" oninput="updateLivePreview()">
+            </div>
+            <div class="control-group">
+                <label>Stroke Color</label>
+                <input type="color" id="actStroke" value="#FFFFFF" oninput="updateLivePreview()">
+            </div>
+            <div class="control-group">
+                <label>Stroke Width</label>
+                <input type="number" id="actWidth" value="18" min="0" max="50" oninput="updateLivePreview()">
+            </div>
+        </div>
+
+        <!-- Panel 3: Layout & Position -->
+        <div class="panel">
+            <h3>📐 Position & Font</h3>
+            <div class="control-group">
+                <label>Font Size (Max)</label>
+                <input type="range" id="fontSize" min="40" max="250" value="100" oninput="updateLivePreview(); document.getElementById('valSize').innerText=this.value">
+                <span id="valSize" style="width:30px; text-align:right;">100</span>
+            </div>
+
+            <div class="control-group-slider" style="margin-bottom:15px;">
+                <label>Pos X</label>
+                <input type="range" id="posX" min="0" max="1920" value="960" oninput="updateLivePreview(); document.getElementById('valX').innerText=this.value">
+                <span id="valX" style="width:40px; text-align:right; margin: 0 5px;">960</span>
+                <button class="reset-btn" title="Reset X to Center" onclick="resetPos('x')">↺</button>
+            </div>
+
+            <div class="control-group-slider">
+                <label>Pos Y</label>
+                <input type="range" id="posY" min="0" max="1080" value="900" oninput="updateLivePreview(); document.getElementById('valY').innerText=this.value">
+                <span id="valY" style="width:40px; text-align:right; margin: 0 5px;">900</span>
+                <button class="reset-btn" title="Reset Y to Bottom" onclick="resetPos('y')">↺</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- LYRICS INPUT -->
+    <div class="lyrics-panel">
+        <textarea id="lyricsInput" placeholder="Paste lyrics here..." oninput="updateLivePreview()">ញញឹមស្រស់ម្លេះពៅ បងឃេីញភ្លាមហេីយទប់ចិត្តស្ទេីមិនបាន សាច់សរជាងសៀវភៅ តែបងចង់ចែចូវយកពៅអោយបាន
+យកអូនធ្វេីជាគូស្រករ បងអោយនាងស្គាល់អារម្មណ៍សុខសាន្ដ បេីអូននាងព្រមមែន បងស្ម័គ្រជូនពៅដេីរលេងកំសាន្ដ
+25 ខេត្តក្រុង ប៉ុណ្ណឹងបងសុីផុយ ដើរលេងមិនអោយអូនចំណាយលុយ មាន Power Band ទុកអោយអូនដោតដុយ បងអាចធ្វើកៅអីត្រៀមទុកអោយអូនអង្គុយ</textarea>
+    </div>
+
+    <!-- ACTION BUTTONS -->
+    <div class="btn-container">
+        <button class="btn-primary" onclick="generateAll()">Generate Preview</button>
+        <button class="btn-success" onclick="downloadZip()">Download All (ZIP)</button>
+    </div>
+
+    <div id="status" style="margin-top:10px; font-weight:bold; color:#00ff00; height: 20px;"></div>
+
+    <!-- RESULTS -->
+    <div id="results-area"></div>
+
+    <!-- CREDIT FOOTER -->
+    <div class="footer">
+        Copyright ⓒ: <span>By Hak Melody</span>
+    </div>
+
+    <script>
+        // === CONFIGURATION ===
+        const fontFileName = 'KhmerOS_muollight.ttf';
+        const fontInternalName = 'LocalMuol';
+        const googleBackup = 'Moul'; 
+        const canvasWidth = 1920;
+        const canvasHeight = 1080;
+        const safeZonePadding = 50; 
+
+        // Default positions for Reset
+        const defaultX = 960;
+        const defaultY = 900;
+
+        let currentFontName = googleBackup;
+
+        // === INITIALIZATION ===
+        async function init() {
+            const status = document.getElementById('status');
+            status.innerText = "Loading Font...";
+
+            try {
+                const font = new FontFace(fontInternalName, `url(${fontFileName})`);
+                await font.load();
+                document.fonts.add(font);
+                currentFontName = fontInternalName;
+            } catch (e) {
+                console.warn("Local font not found, using Google Font backup.");
+                currentFontName = googleBackup;
+            }
+
+            await document.fonts.ready;
+            status.innerText = "";
+            updateLivePreview();
+        }
+
+        // === LIVE PREVIEW UPDATER ===
+        function updateLivePreview() {
+            const canvasNormal = document.getElementById('preview-normal');
+            const canvasActive = document.getElementById('preview-active');
+            const ctxNormal = canvasNormal.getContext('2d');
+            const ctxActive = canvasActive.getContext('2d');
+
+            // Get Settings
+            const settings = getSettings();
+
+            // Get first line
+            const lyrics = document.getElementById('lyricsInput').value;
+            const firstLine = lyrics.split('\n').find(line => line.trim().length > 0) || "Preview Text";
+
+            // Render Normal Style
+            renderToContext(ctxNormal, firstLine, currentFontName, settings.normFill, settings.normStroke, settings.normWidth, settings.fontSize, settings.x, settings.y);
+
+            // Render Active Style
+            renderToContext(ctxActive, firstLine, currentFontName, settings.actFill, settings.actStroke, settings.actWidth, settings.fontSize, settings.x, settings.y);
+        }
+
+        // === RESET FUNCTION ===
+        function resetPos(axis) {
+            if (axis === 'x') {
+                document.getElementById('posX').value = defaultX;
+                document.getElementById('valX').innerText = defaultX;
+            } else if (axis === 'y') {
+                document.getElementById('posY').value = defaultY;
+                document.getElementById('valY').innerText = defaultY;
+            }
+            updateLivePreview();
+        }
+
+        // === HELPER: GET CURRENT SETTINGS ===
+        function getSettings() {
+            return {
+                normFill: document.getElementById('normFill').value,
+                normStroke: document.getElementById('normStroke').value,
+                normWidth: parseInt(document.getElementById('normWidth').value),
+
+                actFill: document.getElementById('actFill').value,
+                actStroke: document.getElementById('actStroke').value,
+                actWidth: parseInt(document.getElementById('actWidth').value),
+
+                fontSize: parseInt(document.getElementById('fontSize').value),
+                x: parseInt(document.getElementById('posX').value),
+                y: parseInt(document.getElementById('posY').value)
+            };
+        }
+
+        // === DOWNLOAD ZIP LOGIC ===
+        async function downloadZip() {
+            const status = document.getElementById('status');
+            const input = document.getElementById('lyricsInput').value;
+
+            if (!input.trim()) {
+                status.innerText = "No lyrics to download!";
+                status.style.color = "red";
+                return;
+            }
+
+            status.innerText = "Generating & Zipping... Please wait (this may take a moment).";
+            status.style.color = "#ffbb00";
+
+            const zip = new JSZip();
+            const lines = input.split('\n');
+            const settings = getSettings();
+            let count = 0;
+
+            // Use a temporary canvas for generation so we don't need to render to DOM
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = canvasWidth;
+            tempCanvas.height = canvasHeight;
+            const ctx = tempCanvas.getContext('2d');
+
+            // Force font load wait just in case
+            await document.fonts.ready;
+
+            lines.forEach((line, index) => {
+                if (!line.trim()) return;
+                const lineNum = index + 1;
+
+                // 1. Generate Normal
+                renderToContext(ctx, line, currentFontName, settings.normFill, settings.normStroke, settings.normWidth, settings.fontSize, settings.x, settings.y);
+                // Get raw base64 data (remove 'data:image/png;base64,' prefix)
+                const normData = tempCanvas.toDataURL("image/png").split(',')[1];
+                zip.file(`line${lineNum}_normal.png`, normData, {base64: true});
+
+                // 2. Generate Active
+                renderToContext(ctx, line, currentFontName, settings.actFill, settings.actStroke, settings.actWidth, settings.fontSize, settings.x, settings.y);
+                const actData = tempCanvas.toDataURL("image/png").split(',')[1];
+                zip.file(`line${lineNum}_active.png`, actData, {base64: true});
+
+                count++;
+            });
+
+            // Generate the zip file
+            const content = await zip.generateAsync({type:"blob"});
+
+            // Trigger download
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(content);
+            link.download = "karaoke_images.zip";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            status.innerText = `Success! Downloaded ${count * 2} images in ZIP.`;
+            status.style.color = "#28a745";
+        }
+
+        // === DISPLAY GENERATOR (Visual Grid) ===
+        async function generateAll() {
+            const status = document.getElementById('status');
+            const resultsArea = document.getElementById('results-area');
+            const input = document.getElementById('lyricsInput').value;
+            const settings = getSettings();
+
+            if (!input.trim()) {
+                status.innerText = "Please enter some lyrics first!";
+                status.style.color = "red";
+                return;
+            }
+
+            resultsArea.innerHTML = ""; 
+            status.innerText = "Generating Previews...";
+            status.style.color = "#00ff00";
+
+            const lines = input.split('\n');
+            let count = 0;
+
+            lines.forEach((line, index) => {
+                if (!line.trim()) return;
+
+                // Normal
+                createResultCard(
+                    line, 
+                    `Line ${index+1} (Normal)`, 
+                    `line${index+1}_normal.png`,
+                    currentFontName,
+                    settings.normFill,
+                    settings.normStroke,
+                    settings.normWidth,
+                    settings.fontSize,
+                    settings.x, settings.y
+                );
+
+                // Active
+                createResultCard(
+                    line, 
+                    `Line ${index+1} (Active)`, 
+                    `line${index+1}_active.png`,
+                    currentFontName,
+                    settings.actFill,
+                    settings.actStroke,
+                    settings.actWidth,
+                    settings.fontSize,
+                    settings.x, settings.y
+                );
+
+                count++;
+            });
+
+            status.innerText = `Previews Generated: ${count * 2} images.`;
+        }
+
+        // === CREATE VISUAL CARD ===
+        function createResultCard(text, label, filename, font, fill, stroke, strokeW, size, x, y) {
+            const resultsArea = document.getElementById('results-area');
+
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = canvasWidth;
+            tempCanvas.height = canvasHeight;
+            renderToContext(tempCanvas.getContext('2d'), text, font, fill, stroke, strokeW, size, x, y);
+            const dataUrl = tempCanvas.toDataURL("image/png");
+
+            const card = document.createElement('div');
+            card.className = 'result-card';
+
+            const header = document.createElement('div');
+            header.className = 'result-header';
+            header.innerHTML = `<span>${label}</span>`;
+
+            const img = document.createElement('img');
+            img.className = 'img-preview';
+            img.src = dataUrl;
+            img.alt = label;
+
+            const btn = document.createElement('a');
+            btn.className = 'download-btn';
+            btn.innerText = "Download PNG";
+            btn.href = dataUrl;
+            btn.download = filename;
+
+            card.appendChild(header);
+            card.appendChild(img);
+            card.appendChild(btn);
+            resultsArea.appendChild(card);
+        }
+
+        // === CORE RENDERING LOGIC ===
+        function renderToContext(ctx, text, fontName, fillColor, strokeColor, strokeWidth, fontSize, x, y) {
+            // Clear
+            ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+
+            // Auto-Fit Logic
+            const maxTextWidth = canvasWidth - (safeZonePadding * 2);
+            let adjustedFontSize = fontSize;
+            ctx.font = `${adjustedFontSize}px ${fontName}`;
+
+            let textWidth = ctx.measureText(text).width;
+
+            while (textWidth > maxTextWidth && adjustedFontSize > 20) {
+                adjustedFontSize -= 2; 
+                ctx.font = `${adjustedFontSize}px ${fontName}`;
+                textWidth = ctx.measureText(text).width;
+            }
+
+            ctx.textAlign = "center"; 
+            ctx.textBaseline = "middle";
+
+            // Shadow
+            ctx.save();
+            ctx.shadowColor = "rgba(0,0,0,0.6)";
+            ctx.shadowBlur = 10;
+            ctx.shadowOffsetX = 5;
+            ctx.shadowOffsetY = 5;
+            ctx.lineWidth = strokeWidth;
+            ctx.lineJoin = "round"; 
+            ctx.strokeStyle = strokeColor; 
+            ctx.strokeText(text, x, y);
+            ctx.restore();
+
+            // Stroke
+            ctx.lineWidth = strokeWidth;
+            ctx.strokeStyle = strokeColor;
+            ctx.lineJoin = "round";
+            ctx.miterLimit = 2;
+            ctx.strokeText(text, x, y);
+
+            // Fill
+            ctx.fillStyle = fillColor;
+            ctx.fillText(text, x, y);
+        }
+    </script>
+</body>
+</html>
